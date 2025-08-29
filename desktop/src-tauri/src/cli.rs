@@ -2,19 +2,20 @@ use std::ffi::OsStr;
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::{fs::File, path::Path};
+use std::time::Duration;
 
-use clap::Clap;
+use clap::Parser;
 use indicatif::{ProgressBar, ProgressStyle};
 use libnspire::{dir::EntryType, PID, PID_CX2, VID};
 
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 #[clap(author, about, version)]
 struct Opt {
   #[clap(subcommand)]
   cmd: Option<SubCommand>,
 }
 
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 enum SubCommand {
   Upload(Upload),
   Download(Download),
@@ -29,31 +30,31 @@ enum SubCommand {
 }
 
 /// Upload files to the calculator
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Upload {
   /// Files to upload
-  #[clap(required = true, parse(from_os_str))]
+  #[clap(required = true, value_parser = clap::value_parser!(std::path::PathBuf))]
   files: Vec<PathBuf>,
   /// Destination path
   dest: String,
 }
 
 /// Download files from the calculator
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Download {
   /// Files to download
-  #[clap(required = true)]
+  #[arg(required = true)]
   files: Vec<String>,
   /// Destination path
-  #[clap(required = true, parse(from_os_str))]
+  #[clap(required = true, value_parser = clap::value_parser!(std::path::PathBuf))]
   dest: PathBuf,
 }
 
 /// Upload and install a .tcc/.tco/.tcc2/.tco2/.tct2 OS file
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct UploadOS {
   /// Path to the OS file
-  #[clap(required = true, parse(from_os_str))]
+#[clap(required = true, value_parser = clap::value_parser!(std::path::PathBuf))]
   file: PathBuf,
 
   /// Disables the file extension check
@@ -62,7 +63,7 @@ struct UploadOS {
 }
 
 /// Copy a file to a different location
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Copy {
   /// Path to file
   #[clap(required = true)]
@@ -74,7 +75,7 @@ struct Copy {
 }
 
 /// Move a file or directory to a new location
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Move {
   /// Path to file
   #[clap(required = true)]
@@ -86,7 +87,7 @@ struct Move {
 }
 
 /// Create a directory
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Mkdir {
   /// Path to directory
   #[clap(required = true)]
@@ -94,7 +95,7 @@ struct Mkdir {
 }
 
 /// Delete a directory
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Rmdir {
   /// Path to directory
   #[clap(required = true)]
@@ -102,7 +103,7 @@ struct Rmdir {
 }
 
 /// List the contents of a directory
-#[derive(Clap, Debug)]
+#[derive(Parser, Debug)]
 struct Ls {
   /// Path to directory
   #[clap(required = true)]
@@ -151,9 +152,9 @@ pub fn run() -> bool {
               .to_string_lossy()
               .to_string();
             let bar = ProgressBar::new(buf.len() as u64);
-            bar.set_style(ProgressStyle::default_bar().template("{spinner:.green} {msg} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})"));
-            bar.set_message(&format!("Upload {}", name));
-            bar.enable_steady_tick(100);
+            bar.set_style(ProgressStyle::default_bar().template("{spinner:.green} {msg} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").expect("REASON"));
+            bar.set_message(format!("Upload {}", name));
+            bar.enable_steady_tick(Duration::new(0, 100));
             if dest.ends_with('/') {
               dest.remove(dest.len() - 1);
             }
@@ -163,10 +164,10 @@ pub fn run() -> bool {
 
             match res {
               Ok(_) => {
-                bar.finish_with_message(&format!("Upload {}: Ok", dest));
+                bar.finish_with_message(format!("Upload {}: Ok", dest));
               }
               Err(error) => {
-                bar.abandon_with_message(&format!("Failed: {}", error));
+                bar.abandon_with_message(format!("Failed: {}", error));
               }
             }
           }
@@ -187,12 +188,13 @@ pub fn run() -> bool {
                     let mut buf = vec![0u8; attr.size() as usize];
 
                     let bar = ProgressBar::new(buf.len() as u64);
-                    bar.set_style(ProgressStyle::default_bar().template("{spinner:.green} {msg} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})"));
-                    bar.set_message(&format!(
+                    bar.set_style(ProgressStyle::default_bar().template("{spinner:.green} {msg} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").expect("REASON"));
+                    bar.set_message(format!(
                       "Download {}",
                       path.file_name().unwrap().to_str().unwrap()
                     ));
-                    bar.enable_steady_tick(100);
+                    //
+                    bar.enable_steady_tick(Duration::new(0, 100));
 
                     let len = buf.len();
 
@@ -209,7 +211,7 @@ pub fn run() -> bool {
                             bar.finish_with_message("Transfer completed");
                           }
                           Err(error) => {
-                            bar.abandon_with_message(&format!(
+                            bar.abandon_with_message(format!(
                               "Failed to write file to disk: {}",
                               error
                             ));
@@ -217,7 +219,7 @@ pub fn run() -> bool {
                         }
                       }
                       Err(error) => {
-                        bar.abandon_with_message(&format!("Failed to transfer file: {}", error))
+                        bar.abandon_with_message(format!("Failed to transfer file: {}", error))
                       }
                     }
                   }
@@ -276,9 +278,9 @@ pub fn run() -> bool {
             .to_string();
 
           let bar = ProgressBar::new(buf.len() as u64);
-          bar.set_style(ProgressStyle::default_bar().template("{spinner:.green} {msg} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})"));
-          bar.set_message(&format!("Upload OS {}", name));
-          bar.enable_steady_tick(100);
+          bar.set_style(ProgressStyle::default_bar().template("{spinner:.green} {msg} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({bytes_per_sec}, {eta})").expect("REASON"));
+          bar.set_message(format!("Upload OS {}", name));
+          bar.enable_steady_tick(Duration::new(0, 100));
 
           let res = handle.send_os(&buf, &mut |remaining| {
             bar.set_position((buf.len() - remaining) as u64);
@@ -289,7 +291,7 @@ pub fn run() -> bool {
               bar.finish();
             }
             Err(error) => {
-              bar.abandon_with_message(&format!("OS Upload failed: {}", error));
+              bar.abandon_with_message(format!("OS Upload failed: {}", error));
             }
           }
         } else {

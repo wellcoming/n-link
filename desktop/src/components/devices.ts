@@ -1,6 +1,6 @@
-import {invoke} from '@tauri-apps/api/tauri';
+import {invoke} from '@tauri-apps/api/core';
 import {listen} from '@tauri-apps/api/event';
-import {open as openDialog} from '@tauri-apps/api/dialog';
+import {open as openDialog} from '@tauri-apps/plugin-dialog';
 import {Component, Vue} from 'vue-property-decorator';
 import type {GenericDevices} from 'n-link-core/components/devices';
 

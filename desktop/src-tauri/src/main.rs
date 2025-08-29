@@ -11,7 +11,7 @@ use hashbrown::HashMap;
 use libnspire::{PID_CX2, VID};
 use rusb::{GlobalContext, Hotplug, UsbContext};
 use serde::Serialize;
-use tauri::{Runtime, Window};
+use tauri::{Runtime, Window, Emitter};
 
 use crate::cmd::{add_device, AddDevice, DevId, ProgressUpdate};
 
