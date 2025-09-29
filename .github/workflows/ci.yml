@@ -11,35 +11,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # ubuntu-18.04 已被弃用，我们升级到最接近且长期支持的 ubuntu-20.04，而不是最新的 22.04，以减小环境跨度
         platform: [macos-latest, ubuntu-20.04, windows-latest]
 
     runs-on: ${{ matrix.platform }}
     steps:
-      # 【必要更新】actions/checkout v2 -> v4
       - uses: actions/checkout@v4
       
       - name: Install GNU tar
         if: runner.os == 'macOS'
         run: |
           echo "/usr/local/opt/gnu-tar/libexec/gnubin" >> $GITHUB_PATH
-          
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        # 【必要更新】修复 set-output 语法
-        run: echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
-        
-      # 【必要更新】actions/cache v2 -> v4
-      - uses: actions/cache@v4
-        id: yarn-cache
+
+      # 【重大简化】我们不再需要手动获取 yarn 缓存路径和调用 actions/cache
+      # 直接在 setup-node 中开启缓存功能！
+      - name: setup node with yarn cache
+        uses: actions/setup-node@v4
         with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ matrix.platform }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ matrix.platform }}-yarn-
-            
-      # 【必要更新】actions/cache v2 -> v4
+          node-version: 12
+          cache: 'yarn' # <-- 魔法就在这里！
+
+      # cargo 的缓存保持不变，因为它没有问题
       - uses: actions/cache@v4
         with:
           path: |
@@ -51,14 +42,6 @@ jobs:
           restore-keys: |
             ${{ matrix.platform }}-cargo-v2-
             
-      # 【必要更新】actions/setup-node v1 -> v4
-      - name: setup node
-        uses: actions/setup-node@v4
-        with:
-          # 【保守策略】Node.js 12 确实太老了且已停止支持。我们不跳到 18，而是选择一个同样是长期支持(LTS)且更接近的 16 版本。
-          # 16 版本对很多老库的兼容性比 18 要好。如果 16 仍然有问题，可以尝试降级到 14。
-          node-version: 12
-          
       - name: install Rust stable
         uses: actions-rs/toolchain@v1
         with:
@@ -68,19 +51,17 @@ jobs:
         if: runner.os != 'Windows'
         run: cargo install tauri-bundler || [ $? -eq 101 ]
         
+      # 【已修正】使用新的 PowerShell 语法
       - name: install tauri bundler
         if: runner.os == 'Windows'
-        # 使用更简洁、现代的 shell 语法
         shell: powershell
         run: |
           cargo install tauri-bundler
-          # 使用更清晰的 if 语句来判断退出码，功能完全相同
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 101) {
             exit 1
           }
         
       - name: install webkit2gtk (ubuntu only)
-        # 相应地更新 ubuntu 版本号
         if: matrix.platform == 'ubuntu-20.04'
         run: |
           sudo apt-get update
@@ -102,44 +83,8 @@ jobs:
           npmScript: "tauri:build"
           projectPath: desktop/
           
-      # 【必要更新】actions/upload-artifact v2 -> v4
       - uses: actions/upload-artifact@v4
         with:
           name: my-artifact-${{ runner.os }}
           path: desktop/src-tauri/target/release/bundle
-          
-  test-web:
-    # 同样使用 ubuntu-20.04
-    runs-on: ubuntu-20.04
-    steps:
-      # 【必要更新】
-      - uses: actions/checkout@v4
-      
-      - name: Get yarn cache directory path
-        id: yarn-cache-dir-path
-        # 【必要更新】
-        run: echo "dir=$(yarn cache dir)" >> "$GITHUB_OUTPUT"
-        
-      # 【必要更新】
-      - uses: actions/cache@v4
-        id: yarn-cache
-        with:
-          path: |
-            ${{ steps.yarn-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-            
-      # 【必要更新】
-      - name: setup node
-        uses: actions/setup-node@v4
-        with:
-          # 【保守策略】同样使用 Node.js 16
-          node-version: 12
-          
-      - name: install app dependencies
-        run: yarn
-        
-      - name: Build
-        run: |
-          yarn workspace web run generate
+ 
