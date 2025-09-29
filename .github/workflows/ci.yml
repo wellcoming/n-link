@@ -51,15 +51,9 @@ jobs:
         if: runner.os != 'Windows'
         run: cargo install tauri-bundler || [ $? -eq 101 ]
         
-      # 【已修正】使用新的 PowerShell 语法
-      - name: install tauri bundler
-        if: runner.os == 'Windows'
-        shell: powershell
-        run: |
-          cargo install tauri-bundler
-          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 101) {
-            exit 1
-          }
+      - name: install tauri cli
+        # 我们不再安装 tauri-bundler，而是安装官方的 tauri-cli
+        run: cargo install tauri-cli
         
       - name: install webkit2gtk (ubuntu only)
         if: matrix.platform == 'ubuntu-20.04'
