@@ -27,7 +27,7 @@ jobs:
       - name: setup node with yarn cache
         uses: actions/setup-node@v4
         with:
-          node-version: 12
+          node-version: 16
           cache: 'yarn' # <-- 魔法就在这里！
 
       # cargo 的缓存保持不变，因为它没有问题
